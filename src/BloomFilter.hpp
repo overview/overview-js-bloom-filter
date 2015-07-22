@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 #include <string>
-#include <vector>
 
 class BloomFilter
 {
@@ -10,11 +9,20 @@ public:
   explicit BloomFilter(size_t nBuckets, uint8_t nHashes)
   : nBuckets(nBuckets),
     nHashes(nHashes),
-    buckets(nBuckets / 8 + (nBuckets % 8 ? 1 : 0)) {}
+    buckets(new char[nBuckets / 8 + (nBuckets % 8 ? 1 : 0)])
+  {
+    std::fill(buckets, buckets + nBytes(), 0);
+  }
+
+  ~BloomFilter() { delete buckets; }
 
   inline void setBit(size_t i) { buckets[i / 8] |= 1 << (i % 8); }
   inline bool testBit(size_t i) const { return 0 != (buckets[i / 8] & (1 << (i % 8))); }
-  void setBuckets(const char* s, size_t len) { buckets.assign(s, s + len); }
+
+  void setBuckets(const char* s, size_t len) {
+    if (len > nBytes()) len = nBytes();
+    std::copy(s, s + len, buckets);
+  }
 
   void add(const char* s, size_t len) {
     const uint64_t hash64 = util::Fingerprint64(s, len);
@@ -58,7 +66,7 @@ public:
     ret.push_back(static_cast<char>(nHashes));
 
     // Write the buckets as chars
-    ret.append(buckets.begin(), buckets.end());
+    ret.append(buckets, buckets + nBytes());
 
     return ret;
   }
@@ -66,5 +74,7 @@ public:
 private:
   const size_t nBuckets;
   const uint8_t nHashes;
-  std::vector<char> buckets;
+  char* buckets;
+
+  size_t nBytes() const { return nBuckets / 8 + (nBuckets % 8 ? 1 : 0); }
 };
