@@ -1,6 +1,6 @@
 {
   "name": "overview-js-bloom-filter",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Bloom filter for Buffers, optimized for crazy speed.",
   "main": "index.js",
   "scripts": {
