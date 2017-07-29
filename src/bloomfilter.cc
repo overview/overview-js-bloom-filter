@@ -58,7 +58,8 @@ void NodeBloomFilter::New(const FunctionCallbackInfo<Value>& args) {
     const int argc = 2;
     Local<Value> argv[argc] = { args[0], args[1] };
     Local<Function> cons = Local<Function>::New(isolate, constructor);
-    args.GetReturnValue().Set(cons->NewInstance(argc, argv));
+    MaybeLocal<Object> maybeInstance = cons->NewInstance(isolate->GetCurrentContext(), argc, argv);
+    args.GetReturnValue().Set(maybeInstance.ToLocalChecked());
   }
 }
 
@@ -80,6 +81,7 @@ void NodeBloomFilter::Add(const FunctionCallbackInfo<Value>& args) {
 
 void NodeBloomFilter::Test(const FunctionCallbackInfo<Value>& args) {
   Isolate* isolate = Isolate::GetCurrent();
+  Local<Context> context = isolate->GetCurrentContext();
   HandleScope scope(isolate);
   NodeBloomFilter* obj = ObjectWrap::Unwrap<NodeBloomFilter>(args.Holder());
 
@@ -94,10 +96,10 @@ void NodeBloomFilter::Test(const FunctionCallbackInfo<Value>& args) {
     size_t begin = 0;
     size_t end = len;
     if (args[1]->IsUint32()) {
-      begin = args[1]->ToUint32()->Value();
+      begin = args[1]->ToUint32(context).ToLocalChecked()->Value();
     }
     if (args[2]->IsUint32()) {
-      end = args[2]->ToUint32()->Value();
+      end = args[2]->ToUint32(context).ToLocalChecked()->Value();
     }
 
     // clamp values
@@ -121,13 +123,14 @@ void NodeBloomFilter::Serialize(const FunctionCallbackInfo<Value>& args) {
   NodeBloomFilter* obj = ObjectWrap::Unwrap<NodeBloomFilter>(args.Holder());
 
   const std::string data = obj->bloomFilter.serialize();
-  Local<Object> buffer = node::Buffer::New(isolate, &data[0], data.length());
+  MaybeLocal<Object> buffer = node::Buffer::Copy(isolate, data.c_str(), data.length());
 
-  args.GetReturnValue().Set(buffer);
+  args.GetReturnValue().Set(buffer.ToLocalChecked());
 }
 
 void Unserialize(const FunctionCallbackInfo<Value>& args) {
   Isolate* isolate = Isolate::GetCurrent();
+  Local<Context> context = isolate->GetCurrentContext();
   HandleScope scope(isolate);
 
   Local<Value> arg = args[0];
@@ -162,11 +165,11 @@ void Unserialize(const FunctionCallbackInfo<Value>& args) {
     Integer::NewFromUnsigned(isolate, nHashes)
   };
   Local<Function> cons = Local<Function>::New(isolate, NodeBloomFilter::constructor);
-  Local<Object> ret = cons->NewInstance(2, argv);
-  NodeBloomFilter* obj = node::ObjectWrap::Unwrap<NodeBloomFilter>(ret);
+  MaybeLocal<Object> ret = cons->NewInstance(context, 2, argv);
+  NodeBloomFilter* obj = node::ObjectWrap::Unwrap<NodeBloomFilter>(ret.ToLocalChecked());
   obj->bloomFilter.setBuckets(&data[5], len - 5);
 
-  args.GetReturnValue().Set(ret);
+  args.GetReturnValue().Set(ret.ToLocalChecked());
 }
 
 void init(Handle<Object> exports) {
